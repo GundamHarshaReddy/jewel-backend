@@ -133,6 +133,131 @@ app.post('/api/payment', async (req, res) => {
   }
 });
 
+// Order status verification endpoint
+app.post('/api/order-status', async (req, res) => {
+  try {
+    // Check if environment variables are set
+    if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Cashfree credentials not configured' 
+      });
+    }
+
+    const { order_id } = req.body;
+    if (!order_id) {
+      return res.status(400).json({ success: false, message: 'Missing order_id' });
+    }
+
+    // Determine Cashfree environment
+    const cashfreeEnv = process.env.CASHFREE_ENVIRONMENT || 'production';
+    const cashfreeApiUrl = cashfreeEnv === 'sandbox'
+      ? `https://sandbox.cashfree.com/pg/orders/${order_id}`
+      : `https://api.cashfree.com/pg/orders/${order_id}`;
+
+    console.log('Checking order status for:', order_id);
+    console.log('URL:', cashfreeApiUrl);
+
+    const response = await axios.get(
+      cashfreeApiUrl,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-version': '2023-08-01',
+          'x-client-id': process.env.CASHFREE_APP_ID,
+          'x-client-secret': process.env.CASHFREE_SECRET_KEY
+        }
+      }
+    );
+
+    console.log('Order status response:', JSON.stringify(response.data, null, 2));
+
+    if (response.data) {
+      const successResponse = { success: true, data: response.data };
+      console.log('Sending order status response to frontend:', JSON.stringify(successResponse, null, 2));
+      return res.json(successResponse);
+    } else {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'No data received from Cashfree for order status' 
+      });
+    }
+  } catch (error) {
+    console.error('Error in /api/order-status:', error, error?.response?.data);
+    return res.status(500).json({
+      success: false,
+      message: error?.response?.data?.message || error.message || 'Error checking order status'
+    });
+  }
+});
+
+// Payment verification endpoint
+app.post('/api/payment-status', async (req, res) => {
+  try {
+    // Check if environment variables are set
+    if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Cashfree credentials not configured' 
+      });
+    }
+
+    const { order_id, payment_id } = req.body;
+    if (!order_id) {
+      return res.status(400).json({ success: false, message: 'Missing order_id' });
+    }
+
+    // Determine Cashfree environment
+    const cashfreeEnv = process.env.CASHFREE_ENVIRONMENT || 'production';
+    
+    // If payment_id is provided, get payment details, otherwise get order details
+    let cashfreeApiUrl;
+    if (payment_id) {
+      cashfreeApiUrl = cashfreeEnv === 'sandbox'
+        ? `https://sandbox.cashfree.com/pg/orders/${order_id}/payments/${payment_id}`
+        : `https://api.cashfree.com/pg/orders/${order_id}/payments/${payment_id}`;
+    } else {
+      cashfreeApiUrl = cashfreeEnv === 'sandbox'
+        ? `https://sandbox.cashfree.com/pg/orders/${order_id}/payments`
+        : `https://api.cashfree.com/pg/orders/${order_id}/payments`;
+    }
+
+    console.log('Checking payment status for order:', order_id, 'payment:', payment_id);
+    console.log('URL:', cashfreeApiUrl);
+
+    const response = await axios.get(
+      cashfreeApiUrl,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-version': '2023-08-01',
+          'x-client-id': process.env.CASHFREE_APP_ID,
+          'x-client-secret': process.env.CASHFREE_SECRET_KEY
+        }
+      }
+    );
+
+    console.log('Payment status response:', JSON.stringify(response.data, null, 2));
+
+    if (response.data) {
+      const successResponse = { success: true, data: response.data };
+      console.log('Sending payment status response to frontend:', JSON.stringify(successResponse, null, 2));
+      return res.json(successResponse);
+    } else {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'No data received from Cashfree for payment status' 
+      });
+    }
+  } catch (error) {
+    console.error('Error in /api/payment-status:', error, error?.response?.data);
+    return res.status(500).json({
+      success: false,
+      message: error?.response?.data?.message || error.message || 'Error checking payment status'
+    });
+  }
+});
+
 // Webhook endpoint for Cashfree payment notifications
 app.post('/api/webhook', async (req, res) => {
   try {
