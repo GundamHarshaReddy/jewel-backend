@@ -14,12 +14,34 @@ app.use(express.json());
 
 // Health check
 app.get('/', (req, res) => {
-  res.json({ status: 'Backend running' });
+  res.json({ 
+    status: 'Backend running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.CASHFREE_ENVIRONMENT || 'production',
+    hasCredentials: !!(process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY)
+  });
+});
+
+// Additional health check for Vercel
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK',
+    service: 'Cashfree Payment Backend',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Cashfree payment endpoint
 app.post('/api/payment', async (req, res) => {
   try {
+    // Check if environment variables are set
+    if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Cashfree credentials not configured' 
+      });
+    }
+
     const { order_amount, customer_id, customer_name, customer_email, customer_phone, return_url } = req.body;
     if (!order_amount || !customer_id || !customer_phone) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
