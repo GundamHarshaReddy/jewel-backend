@@ -106,14 +106,18 @@ app.post('/api/payment', async (req, res) => {
     console.log('Response headers:', response.headers);
 
     if (response.data && response.data.payment_session_id) {
-      return res.json({ success: true, data: response.data });
+      const successResponse = { success: true, data: response.data };
+      console.log('Sending success response to frontend:', JSON.stringify(successResponse, null, 2));
+      return res.json(successResponse);
     } else {
       console.error('Missing payment_session_id in Cashfree response:', response.data);
-      return res.status(500).json({ 
+      const errorResponse = { 
         success: false, 
         message: 'No payment_session_id received from Cashfree.',
         cashfreeResponse: response.data 
-      });
+      };
+      console.log('Sending error response to frontend:', JSON.stringify(errorResponse, null, 2));
+      return res.status(500).json(errorResponse);
     }
   } catch (error) {
     // Log full error for debugging
