@@ -103,6 +103,40 @@ app.post('/api/payment', async (req, res) => {
   }
 });
 
+// Webhook endpoint for Cashfree payment notifications
+app.post('/api/webhook', async (req, res) => {
+  try {
+    console.log('Webhook received:', req.body);
+    
+    const { order_id, order_status, order_amount, payment_id, payment_status } = req.body;
+    
+    // Verify the webhook signature (optional but recommended)
+    // You can add signature verification here for security
+    
+    // Process the payment status
+    if (payment_status === 'SUCCESS') {
+      console.log(`Payment successful for order ${order_id}, payment ID: ${payment_id}`);
+      // Here you can:
+      // 1. Update your database
+      // 2. Send confirmation emails
+      // 3. Update inventory
+      // 4. Any other business logic
+    } else if (payment_status === 'FAILED') {
+      console.log(`Payment failed for order ${order_id}`);
+      // Handle failed payment
+    } else {
+      console.log(`Payment status ${payment_status} for order ${order_id}`);
+    }
+    
+    // Always respond with 200 OK to acknowledge receipt
+    res.status(200).json({ success: true, message: 'Webhook processed' });
+    
+  } catch (error) {
+    console.error('Webhook error:', error);
+    res.status(500).json({ success: false, message: 'Webhook processing failed' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Backend server running on port ${PORT}`);
 });
