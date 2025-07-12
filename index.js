@@ -136,27 +136,39 @@ app.post('/api/payment', async (req, res) => {
 // Order status verification endpoint
 app.post('/api/order-status', async (req, res) => {
   try {
+    // Support both naming conventions for environment variables
+    const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID || process.env.VITE_CASHFREE_APP_ID;
+    const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY || process.env.VITE_CASHFREE_SECRET_KEY;
+    const CASHFREE_ENVIRONMENT = process.env.CASHFREE_ENVIRONMENT || process.env.VITE_CASHFREE_ENVIRONMENT || 'production';
+
     // Check if environment variables are set
-    if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+    if (!CASHFREE_APP_ID || !CASHFREE_SECRET_KEY) {
       return res.status(500).json({ 
         success: false, 
+        error: 'Cashfree credentials not configured',
         message: 'Cashfree credentials not configured' 
       });
     }
 
     const { order_id } = req.body;
     if (!order_id) {
-      return res.status(400).json({ success: false, message: 'Missing order_id' });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing order_id',
+        message: 'Missing order_id' 
+      });
     }
 
-    // Determine Cashfree environment
-    const cashfreeEnv = process.env.CASHFREE_ENVIRONMENT || 'production';
-    const cashfreeApiUrl = cashfreeEnv === 'sandbox'
-      ? `https://sandbox.cashfree.com/pg/orders/${order_id}`
-      : `https://api.cashfree.com/pg/orders/${order_id}`;
+    // Determine API base URL
+    const baseUrl = CASHFREE_ENVIRONMENT === 'production' 
+      ? 'https://api.cashfree.com/pg' 
+      : 'https://sandbox.cashfree.com/pg';
 
-    console.log('Checking order status for:', order_id);
+    const cashfreeApiUrl = `${baseUrl}/orders/${order_id}`;
+
+    console.log(`Fetching order status for order: ${order_id}`);
     console.log('URL:', cashfreeApiUrl);
+    console.log('Environment:', CASHFREE_ENVIRONMENT);
 
     const response = await axios.get(
       cashfreeApiUrl,
@@ -164,13 +176,13 @@ app.post('/api/order-status', async (req, res) => {
         headers: {
           'Content-Type': 'application/json',
           'x-api-version': '2023-08-01',
-          'x-client-id': process.env.CASHFREE_APP_ID,
-          'x-client-secret': process.env.CASHFREE_SECRET_KEY
+          'x-client-id': CASHFREE_APP_ID,
+          'x-client-secret': CASHFREE_SECRET_KEY
         }
       }
     );
 
-    console.log('Order status response:', JSON.stringify(response.data, null, 2));
+    console.log('Cashfree order status response:', JSON.stringify(response.data, null, 2));
 
     if (response.data) {
       const successResponse = { success: true, data: response.data };
@@ -179,13 +191,17 @@ app.post('/api/order-status', async (req, res) => {
     } else {
       return res.status(500).json({ 
         success: false, 
+        error: 'No data received from Cashfree for order status',
         message: 'No data received from Cashfree for order status' 
       });
     }
   } catch (error) {
-    console.error('Error in /api/order-status:', error, error?.response?.data);
+    console.error('Error fetching order status:', error);
+    console.error('Error details:', error?.response?.data);
+    
     return res.status(500).json({
       success: false,
+      error: 'Failed to fetch order status',
       message: error?.response?.data?.message || error.message || 'Error checking order status'
     });
   }
