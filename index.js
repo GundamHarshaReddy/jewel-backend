@@ -75,6 +75,18 @@ app.post('/api/payment', async (req, res) => {
       ? 'https://sandbox.cashfree.com/pg/orders'
       : 'https://api.cashfree.com/pg/orders';
 
+    // Log request details for debugging
+    console.log('Making request to Cashfree:');
+    console.log('URL:', cashfreeApiUrl);
+    console.log('Environment:', cashfreeEnv);
+    console.log('Request body:', JSON.stringify(requestBody, null, 2));
+    console.log('Headers:', {
+      'Content-Type': 'application/json',
+      'x-api-version': '2023-08-01',
+      'x-client-id': process.env.CASHFREE_APP_ID,
+      'x-client-secret': process.env.CASHFREE_SECRET_KEY ? '[HIDDEN]' : 'MISSING'
+    });
+
     const response = await axios.post(
       cashfreeApiUrl,
       requestBody,
@@ -88,10 +100,20 @@ app.post('/api/payment', async (req, res) => {
       }
     );
 
+    // Log the full response for debugging
+    console.log('Cashfree API Response:', JSON.stringify(response.data, null, 2));
+    console.log('Response status:', response.status);
+    console.log('Response headers:', response.headers);
+
     if (response.data && response.data.payment_session_id) {
       return res.json({ success: true, data: response.data });
     } else {
-      return res.status(500).json({ success: false, message: 'No response data received from Cashfree.' });
+      console.error('Missing payment_session_id in Cashfree response:', response.data);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'No payment_session_id received from Cashfree.',
+        cashfreeResponse: response.data 
+      });
     }
   } catch (error) {
     // Log full error for debugging
